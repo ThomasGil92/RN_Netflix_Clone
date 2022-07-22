@@ -36,7 +36,42 @@ export default function RowsCategories() {
   const [animationMovies, setAnimationMovies] = useState();
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState();
-  const [storageList, setStorageList] = useState(null);
+  const [storageList, setStorageList] = useState();
+
+  const fadeAnimDelete = useRef(new Animated.Value(0)).current;
+  const fadeAnimAdd = useRef(new Animated.Value(0)).current;
+  const fadeInDelete = () => {
+    // Will change fadeAnim value to 1 in 5 seconds
+    Animated.timing(fadeAnimDelete, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+  const fadeOutDelete = () => {
+    // Will change fadeAnim value to 1 in 5 seconds
+    Animated.timing(fadeAnimDelete, {
+      toValue: 0,
+      duration: 0,
+      useNativeDriver: true,
+    }).start();
+  };
+  const fadeInAdd = () => {
+    // Will change fadeAnim value to 1 in 5 seconds
+    Animated.timing(fadeAnimAdd, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+  const fadeOutAdd = () => {
+    // Will change fadeAnim value to 1 in 5 seconds
+    Animated.timing(fadeAnimAdd, {
+      toValue: 0,
+      duration: 0,
+      useNativeDriver: true,
+    }).start();
+  };
 
   async function getAllgenres() {
     try {
@@ -117,7 +152,9 @@ export default function RowsCategories() {
   }
   const getStorageList = async () => {
     const storageListInit = await AsyncStorage.getItem("PERSONAL_MOVIE_LIST");
-    setStorageList(storageListInit);
+    if (storageListInit !== undefined) {
+      setStorageList(storageListInit);
+    }
   };
   useEffect(() => {
     getAllgenres();
@@ -135,14 +172,21 @@ export default function RowsCategories() {
   }, [addToFavoriteList, removeFromFavoriteList]);
 
   function isInTheFavList(item) {
-    if (storageList !== null || storageList !== undefined) {
+    if (storageList != null || storageList != undefined) {
       const newStorageList = JSON.parse(storageList);
       const alreadyHere = newStorageList.filter((sL) => sL.id === item.id);
       if (alreadyHere.length !== 0) {
+        fadeOutAdd();
+        fadeInDelete();
         return true;
       } else {
+        fadeOutDelete();
+        fadeInAdd();
         return false;
       }
+    } else {
+      fadeInAdd();
+      return false;
     }
     // return storageList != null ? JSON.parse(jsonValue) : null;
     /* const jsonValue = JSON.stringify([value]);
@@ -323,28 +367,6 @@ export default function RowsCategories() {
     );
   }
 
-  const FadeInView = (props) => {
-    const fadeAnim = new Animated.ValueXY({ x: -100, y: -100 }); // Initial value for opacity: 0
-    Animated.spring(fadeAnim, {
-      useNativeDriver: true,
-      toValue: { x: -100, y: 5 - 100 },
-      duration: 5000,
-    }).start();
-    /* useEffect(() => {
-      Animated.spring(fadeAnim, {
-        useNativeDriver: true,
-        toValue: { x: 225, y: 575 },
-      }).start();
-    }, []); */
-
-    return (
-      <Animated.View // Special animatable View
-      >
-        <Text style={{ color: "white" }}>test</Text>
-      </Animated.View>
-    );
-  };
-
   function renderRows() {
     return (
       <View>
@@ -492,68 +514,77 @@ export default function RowsCategories() {
                       {selectedItem.title}
                     </Text>
                     {isInTheFavList(selectedItem) ? (
-                      <Pressable
-                        onPress={() => {
-                          return Alert.alert(
-                            `Voulez-vous supprimer "${selectedItem.title}" de votre liste?`,
-                            "",
-                            [
-                              {
-                                text: "Annuler",
-                                style: "destructive",
-                              },
-                              {
-                                text: "Oui",
-                                onPress: () => {
-                                  removeFromFavoriteList(selectedItem);
+                      <Animated.View style={{ opacity: fadeAnimDelete }}>
+                        <Pressable
+                          //style={{ opacity: fadeAnim }}
+                          onPress={() => {
+                            return Alert.alert(
+                              `Voulez-vous supprimer "${selectedItem.title}" de votre liste?`,
+                              "",
+                              [
+                                {
+                                  text: "Annuler",
+                                  style: "destructive",
                                 },
-                              },
-                            ]
-                          );
-                        }}
-                      >
-                        <View
-                          style={{
-                            marginHorizontal: 10,
-                            paddingTop: 15,
-                            maxWidth: dimension.width / 5,
+                                {
+                                  text: "Oui",
+                                  onPress: () => {
+                                    removeFromFavoriteList(selectedItem);
+                                  },
+                                },
+                              ]
+                            );
                           }}
                         >
-                          <MaterialIcons
-                            style={{ textAlign: "center" }}
-                            name="remove"
-                            size={34}
-                            color="white"
-                          />
-                          <Text style={{ color: "grey", textAlign: "center" }}>
-                            Ma liste
-                          </Text>
-                        </View>
-                      </Pressable>
+                          <View
+                            style={{
+                              marginHorizontal: 10,
+                              paddingTop: 15,
+                              maxWidth: dimension.width / 5,
+                            }}
+                          >
+                            <MaterialIcons
+                              style={{ textAlign: "center" }}
+                              name="remove"
+                              size={34}
+                              color="white"
+                            />
+                            <Text
+                              style={{ color: "grey", textAlign: "center" }}
+                            >
+                              Ma liste
+                            </Text>
+                          </View>
+                        </Pressable>
+                      </Animated.View>
                     ) : (
-                      <Pressable
-                        onPress={() => {
-                          addToFavoriteList(selectedItem);
-                        }}
-                      >
-                        <View
-                          style={{
-                            marginHorizontal: 10,
-                            paddingTop: 15,
-                            maxWidth: dimension.width / 5,
+                      <Animated.View style={{ opacity: fadeAnimAdd }}>
+                        <Pressable
+                          onPress={() => {
+                            addToFavoriteList(selectedItem);
                           }}
                         >
-                          <MaterialIcons
-                            style={{ textAlign: "center" }}
-                            name="add"
-                            size={34}
-                            color="white"
-                          />
-                          <Text style={{ color: "grey", textAlign: "center" }}>
-                            Ma liste
-                          </Text>
-                        </View>
-                      </Pressable>
+                          <View
+                            style={{
+                              marginHorizontal: 10,
+                              paddingTop: 15,
+                              maxWidth: dimension.width / 5,
+                            }}
+                          >
+                            <MaterialIcons
+                              style={{ textAlign: "center" }}
+                              name="add"
+                              size={34}
+                              color="white"
+                            />
+                            <Text
+                              style={{ color: "grey", textAlign: "center" }}
+                            >
+                              Ma liste
+                            </Text>
+                          </View>
+                        </Pressable>
+                      </Animated.View>
                     )}
 
                     <Pressable onPress={() => Alert.alert("En développement")}>

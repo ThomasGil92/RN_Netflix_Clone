@@ -7,65 +7,36 @@ import {
   useWindowDimensions,
   Image,
   Alert,
-  Button,
   ActivityIndicator,
 } from "react-native";
 import { useEffect, useState } from "react";
 import Modal from "react-native-modal";
-import {
-  REACT_APP_IMDB_API_URL,
-  REACT_APP_IMDB_API_KEY,
-  REACT_APP_IMDB_API_IMG_URL,
-} from "@env";
+import { REACT_APP_IMDB_API_IMG_URL } from "@env";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSelector, useDispatch } from "react-redux";
+
 import YoutubePlayer from "react-native-youtube-iframe";
 
 import { MaterialIcons } from "@expo/vector-icons";
+import {
+  getAllGenres,
+  getTrailerUrl,
+  clearTrailerUrl,
+  getStorage,
+  deleteStorageItem,
+} from "../../redux/actions";
 
 export default function FavoritesRows() {
   const dimension = useWindowDimensions();
-  const [genres, setGenres] = useState();
+  const dispatch = useDispatch();
+  const genres = useSelector((state) => state.allGenres);
+  const trailerUrl = useSelector((state) => state.trailerUrl);
+  const savedMovies = useSelector((state) => state.savedMovies);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState();
-  const [savedMovies, setSavedMovies] = useState();
   const [trailerDisplay, setTrailerDisplay] = useState(false);
-  const [trailerId, setTrailerId] = useState();
-
-  async function getStorage() {
-    try {
-      const jsonValue = await AsyncStorage.getItem("PERSONAL_MOVIE_LIST");
-      console.log(JSON.parse(jsonValue));
-      jsonValue !== null ? setSavedMovies(JSON.parse(jsonValue)) : null;
-    } catch (e) {
-      console.log(e);
-    }
-  }
-
-  async function deleteSavedItem(item) {
-    try {
-      const storageList = await AsyncStorage.getItem("PERSONAL_MOVIE_LIST");
-
-      if (storageList !== null) {
-        const newStorageList = JSON.parse(storageList);
-        const itemToSupp = newStorageList.filter((sL) => sL.id !== item.id);
-
-        const jsonValue = JSON.stringify(itemToSupp);
-        await AsyncStorage.setItem("PERSONAL_MOVIE_LIST", jsonValue);
-        setModalVisible(false);
-        getStorage();
-      } /* else {
-    const jsonValue = JSON.stringify([value]);
-    await AsyncStorage.setItem("PERSONAL_MOVIE_LIST", jsonValue);
-  } */
-      // return storageList != null ? JSON.parse(jsonValue) : null;
-      /* const jsonValue = JSON.stringify([value]);
-      await AsyncStorage.setItem("PERSONAL_MOVIE_LIST", jsonValue); */
-    } catch (e) {
-      console.log(e);
-    }
-  }
+  const [loading, setLoading] = useState(true);
 
   function createAlert() {
     return Alert.alert(
@@ -78,56 +49,25 @@ export default function FavoritesRows() {
         },
         {
           text: "Oui",
-          onPress: () => {
-            deleteSavedItem(selectedItem);
+          onPress: async () => {
+            dispatch(deleteStorageItem(selectedItem));
+
+            setModalVisible(false);
           },
         },
       ]
     );
   }
 
-  async function getAllgenres() {
-    try {
-      const response = await fetch(
-        `${REACT_APP_IMDB_API_URL}/genre/movie/list?api_key=${REACT_APP_IMDB_API_KEY}&language=fr-FR`
-      );
-      const json = await response.json();
-      setGenres(json.genres);
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  async function getTrailerUrl(item) {
-    const trailers = await fetch(
-      `${REACT_APP_IMDB_API_URL}/movie/${item.id}/videos?api_key=${REACT_APP_IMDB_API_KEY}`
-    )
-      .then(function (response) {
-        return response.text();
-      })
-      .then(function (text) {
-        let outcome = JSON.parse(text);
-
-        return outcome;
-      });
-    const trailer = () => {
-      const t = trailers.results.find((e) =>
-        e.name.toLowerCase().includes("official trailer")
-      );
-      return t !== undefined ? t : trailers.results[0];
-    };
-    setTrailerId(trailer().key);
-  }
-
   useEffect(() => {
-    getStorage();
-    getAllgenres();
+    /* getStorage(); */
+    dispatch(getStorage());
+    dispatch(getAllGenres());
+    setLoading(false);
   }, []);
 
   function getGenresOfThisMovie(item) {
     const genresToDisplay = [];
-    /* console.log("genre", data[0].genre_ids);
-    console.log("genres", genres); */
     item.genre_ids.map((g) => {
       const filteredG = genres.filter((fG) => fG.id === g);
       genresToDisplay.push(filteredG[0].name);
@@ -252,10 +192,10 @@ export default function FavoritesRows() {
   }
 
   return (
-    <View style={{ backgroundColor: "#000000" }}>
+    <View>
       <View style={styles.column}>
         <View>
-          {savedMovies ? (
+          {savedMovies !== null ? (
             <>
               {renderRows()}
               <Modal
@@ -265,7 +205,7 @@ export default function FavoritesRows() {
                 isVisible={modalVisible}
                 onSwipeComplete={() => {
                   setTrailerDisplay(false);
-                  setTrailerId();
+                  dispatch(clearTrailerUrl());
                   setSelectedItem();
                   setModalVisible(false);
                 }}
@@ -315,22 +255,22 @@ export default function FavoritesRows() {
                               width: "100%",
                             }}
                           >
-                            {(trailerId !== undefined ||
-                              trailerId !== null) && (
+                            {(trailerUrl != undefined ||
+                              trailerUrl != null) && (
                               <YoutubePlayer
                                 style={{
                                   width: "100%",
                                 }}
                                 height={270}
                                 play
-                                videoId={trailerId}
+                                videoId={trailerUrl.key}
                               />
                             )}
                           </View>
                         ) : (
                           <Pressable
                             onPress={() => {
-                              getTrailerUrl(selectedItem);
+                              dispatch(getTrailerUrl(selectedItem));
                               setTrailerDisplay(true);
                             }}
                             style={{
@@ -479,7 +419,8 @@ export default function FavoritesRows() {
                             {selectedItem.overview}
                           </Text>
                         </View>
-                        {getGenresOfThisMovie(selectedItem)}
+                        {genres !== undefined &&
+                          getGenresOfThisMovie(selectedItem)}
                       </>
                     ) : (
                       <ActivityIndicator size="large" color="#FE0106" />
@@ -488,6 +429,8 @@ export default function FavoritesRows() {
                 </View>
               </Modal>
             </>
+          ) : loading === false ? (
+            <Text style={{ color: "white" }}>Aucun film dans votre liste</Text>
           ) : (
             <ActivityIndicator
               size="large"

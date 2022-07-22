@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   StyleSheet,
   View,
@@ -10,90 +10,153 @@ import {
   Pressable,
   Alert,
   TouchableOpacity,
+  Animated,
+  Share,
   TouchableWithoutFeedback,
 } from "react-native";
+import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import YoutubePlayer from "react-native-youtube-iframe";
-import {
-  REACT_APP_IMDB_API_URL,
-  REACT_APP_IMDB_API_KEY,
-  REACT_APP_IMDB_API_IMG_URL,
-} from "@env";
+import { REACT_APP_IMDB_API_IMG_URL } from "@env";
 import Modal from "react-native-modal";
 
 import { MaterialIcons } from "@expo/vector-icons";
+import { useDispatch, useSelector } from "react-redux";
+
+import {
+  clearTrailerUrl,
+  addStorageItem,
+  deleteStorageItem,
+  getAllGenres,
+  getBestMoviesSince2021,
+  getStorage,
+  getTrailerUrl,
+} from "../../redux/actions";
 
 export default function CatalogHeader() {
-  const [trailerUrl, setTrailerUrl] = useState(null);
+  const dispatch = useDispatch();
+  const bestMoviesSince2021 = useSelector((state) => state.bestMoviesSince2021);
+  const genres = useSelector((state) => state.allGenres);
+  const trailerUrl = useSelector((state) => state.trailerUrl);
+  const savedMovies = useSelector((state) => state.savedMovies);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [infosModalVisible, setInfosModalVisible] = useState(false);
   const [isLoading, setLoading] = useState(true);
-  const [data, setData] = useState();
-  const [genres, setGenres] = useState(null);
   const dimension = useWindowDimensions();
 
-  const getMovies = async () => {
+  //Share options, cannot test on simulator
+  /* const onShare = async () => {
     try {
-      const response = await fetch(
-        `${REACT_APP_IMDB_API_URL}/discover/movie?with_original_language=en&sort_by=popularity.desc&primary_release_year=2021&language=fr-FR&api_key=${REACT_APP_IMDB_API_KEY}`
-      );
-      const json = await response.json();
-      setData(json.results);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  async function getAllgenres() {
-    try {
-      const response = await fetch(
-        `${REACT_APP_IMDB_API_URL}/genre/movie/list?api_key=${REACT_APP_IMDB_API_KEY}&language=fr-FR`
-      );
-      const json = await response.json();
-      /*  console.log(json.genres); */
-      setGenres(json.genres);
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  async function getTrailerUrl() {
-    const trailers = await fetch(
-      `${REACT_APP_IMDB_API_URL}/movie/${data[0].id}/videos?api_key=${REACT_APP_IMDB_API_KEY}`
-    )
-      .then(function (response) {
-        return response.text();
-      })
-      .then(function (text) {
-        let outcome = JSON.parse(text);
-
-        return outcome;
+      const result = await Share.share({
+        message:
+          "React Native | A framework for building native apps using React",
+        url: "https://reactnative.dev/docs/share",
+        title: "React Native shared link",
       });
-    const trailer = () => {
-      const t = trailers.results.find((e) =>
-        e.name.toLowerCase().includes("official trailer")
-      );
-      return t !== undefined ? t : trailers.results[0];
-    };
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          // shared with activity type of result.activityType
+        } else {
+          // shared
+        }
+      } else if (result.action === Share.dismissedAction) {
+        // dismissed
+      }
+    } catch (error) {
+      alert(error.message);
+    }
+  }; */
 
-    setTrailerUrl(trailer().key);
-  }
+  const fadeAnimDelete = useRef(new Animated.Value(0)).current;
+  const fadeAnimAdd = useRef(new Animated.Value(0)).current;
+  const fadeInDelete = () => {
+    // Will change fadeAnim value to 1 in 5 seconds
+    Animated.timing(fadeAnimDelete, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+  const fadeOutDelete = () => {
+    // Will change fadeAnim value to 1 in 5 seconds
+    Animated.timing(fadeAnimDelete, {
+      toValue: 0,
+      duration: 0,
+      useNativeDriver: true,
+    }).start();
+  };
+  const fadeInAdd = () => {
+    // Will change fadeAnim value to 1 in 5 seconds
+    Animated.timing(fadeAnimAdd, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+  const fadeOutAdd = () => {
+    // Will change fadeAnim value to 1 in 5 seconds
+    Animated.timing(fadeAnimAdd, {
+      toValue: 0,
+      duration: 0,
+      useNativeDriver: true,
+    }).start();
+  };
+  //Notifications Push, cannot test on simulator
+  /* Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+    }),
+  });
+  async function registerForPushNotificationsAsync() {
+    let token;
+
+    const { status: existingStatus } =
+      await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== "granted") {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== "granted") {
+      alert("Failed to get push token for push notification!");
+      return;
+    }
+    token = (await Notifications.getExpoPushTokenAsync()).data;
+    console.log(token);
+
+    return token;
+  } */
 
   useEffect(() => {
-    getAllgenres();
-    getMovies();
-    getData();
+    /* registerForPushNotificationsAsync(); */
+
+    dispatch(getAllGenres());
+    dispatch(getBestMoviesSince2021());
+    dispatch(getStorage());
+    getData(); /* 
+    getStorageList(); */
+    setLoading(false);
   }, []);
 
-  async function storeData(value) {
-    try {
-      const jsonValue = JSON.stringify([value]);
-      await AsyncStorage.setItem("PERSONAL_MOVIE_LIST", jsonValue);
-    } catch (e) {
-      console.log(e);
+  function isInTheFavList(item) {
+    console.log("sss", savedMovies);
+    if (savedMovies !== null || savedMovies != undefined) {
+      const newSavedMovies = savedMovies;
+      const alreadyHere = newSavedMovies.filter((sL) => sL.id === item.id);
+      if (alreadyHere.length !== 0) {
+        fadeOutAdd();
+        fadeInDelete();
+        return true;
+      } else {
+        fadeOutDelete();
+        fadeInAdd();
+        return false;
+      }
+    } else {
+      fadeInAdd();
+      return false;
     }
   }
 
@@ -103,15 +166,14 @@ export default function CatalogHeader() {
 
       return jsonValue != null ? JSON.parse(jsonValue) : null;
     } catch (e) {
-      // error reading value
+      console.log(e);
     }
   }
 
   function getGenresOfThisMovie() {
     const genresToDisplay = [];
-    /* console.log("genre", data[0].genre_ids);
-    console.log("genres", genres); */
-    data[0].genre_ids.map((g) => {
+
+    bestMoviesSince2021[0].genre_ids.map((g) => {
       const filteredG = genres.filter((fG) => fG.id === g);
       genresToDisplay.push(filteredG[0].name);
     });
@@ -146,7 +208,7 @@ export default function CatalogHeader() {
                     />
                   </View>
                 ) : (
-                  <Text>{/* {JSON.stringify(item)} */}</Text>
+                  <View></View>
                 )}
                 <Text
                   style={{
@@ -170,7 +232,7 @@ export default function CatalogHeader() {
     <View style={{ flex: 1, backgroundColor: "#000000" }}>
       <View style={styles.column}>
         <View style={{ flex: 1 }}>
-          {isLoading ? (
+          {!bestMoviesSince2021[0] ? (
             <ActivityIndicator size="large" color="#FE0106" />
           ) : (
             <>
@@ -188,7 +250,7 @@ export default function CatalogHeader() {
                 />
                 <Image
                   source={{
-                    uri: `${REACT_APP_IMDB_API_IMG_URL}${data[0].poster_path}`,
+                    uri: `${REACT_APP_IMDB_API_IMG_URL}${bestMoviesSince2021[0].poster_path}`,
                   }}
                   style={{ height: 500 }}
                   resizeMode={"cover"}
@@ -212,7 +274,7 @@ export default function CatalogHeader() {
                       color: "white",
                     }}
                   >
-                    {data[0].title} {infosModalVisible ? "true" : "false"}
+                    {bestMoviesSince2021[0].title}
                   </Text>
                 </View>
               </View>
@@ -266,7 +328,7 @@ export default function CatalogHeader() {
                         }}
                       >
                         <TouchableWithoutFeedback>
-                          {trailerUrl !== null ? (
+                          {trailerUrl != null && (
                             <View
                               style={{
                                 /* height: 200, */
@@ -278,12 +340,8 @@ export default function CatalogHeader() {
                                 style={styles.video}
                                 height={250}
                                 play
-                                videoId={trailerUrl}
+                                videoId={trailerUrl.key}
                               />
-                            </View>
-                          ) : (
-                            <View>
-                              <Text>test</Text>
                             </View>
                           )}
                         </TouchableWithoutFeedback>
@@ -298,17 +356,78 @@ export default function CatalogHeader() {
                     alignItems: "center",
                   }}
                 >
-                  <Pressable onPress={() => storeData(data[0])}>
-                    <View style={{ padding: 10, marginRight: 20 }}>
-                      <MaterialIcons
-                        style={{ textAlign: "center" }}
-                        name="add"
-                        size={34}
-                        color="white"
-                      />
-                      <Text style={{ color: "grey" }}>Ma liste</Text>
-                    </View>
-                  </Pressable>
+                  {isInTheFavList(bestMoviesSince2021[0]) ? (
+                    <Animated.View style={{ opacity: fadeAnimDelete }}>
+                      <Pressable
+                        //style={{ opacity: fadeAnim }}
+                        onPress={() => {
+                          return Alert.alert(
+                            `Voulez-vous supprimer "${bestMoviesSince2021[0].title}" de votre liste?`,
+                            "",
+                            [
+                              {
+                                text: "Annuler",
+                                style: "destructive",
+                              },
+                              {
+                                text: "Oui",
+                                onPress: () => {
+                                  dispatch(
+                                    deleteStorageItem(bestMoviesSince2021[0])
+                                  );
+                                },
+                              },
+                            ]
+                          );
+                        }}
+                      >
+                        <View
+                          style={{
+                            marginHorizontal: 10,
+                            paddingTop: 15,
+                            maxWidth: dimension.width / 5,
+                          }}
+                        >
+                          <MaterialIcons
+                            style={{ textAlign: "center" }}
+                            name="remove"
+                            size={34}
+                            color="white"
+                          />
+                          <Text style={{ color: "grey", textAlign: "center" }}>
+                            Ma liste
+                          </Text>
+                        </View>
+                      </Pressable>
+                    </Animated.View>
+                  ) : (
+                    <Animated.View style={{ opacity: fadeAnimAdd }}>
+                      <Pressable
+                        onPress={() => {
+                          console.log("test");
+                          dispatch(addStorageItem(bestMoviesSince2021[0]));
+                        }}
+                      >
+                        <View
+                          style={{
+                            marginHorizontal: 10,
+                            paddingTop: 15,
+                            maxWidth: dimension.width / 5,
+                          }}
+                        >
+                          <MaterialIcons
+                            style={{ textAlign: "center" }}
+                            name="add"
+                            size={34}
+                            color="white"
+                          />
+                          <Text style={{ color: "grey", textAlign: "center" }}>
+                            Ma liste
+                          </Text>
+                        </View>
+                      </Pressable>
+                    </Animated.View>
+                  )}
                   <Pressable
                     style={{
                       backgroundColor: "#FFFFFF",
@@ -317,7 +436,8 @@ export default function CatalogHeader() {
                       padding: 10,
                     }}
                     onPress={() => {
-                      getTrailerUrl();
+                      dispatch(getTrailerUrl(bestMoviesSince2021[0]));
+
                       setModalVisible(true);
                     }}
                   >
@@ -339,14 +459,11 @@ export default function CatalogHeader() {
                   <Modal
                     statusBarTranslucent={true}
                     transparent={true}
-                    //animationIn="slide"
                     isVisible={infosModalVisible}
-                    onSwipeComplete={() => setInfosModalVisible(false)}
+                    onSwipeComplete={() => {
+                      dispatch(clearTrailerUrl()), setInfosModalVisible(false);
+                    }}
                     swipeDirection="down"
-
-                    /* onRequestClose={() => {
-                      setInfosModalVisible(!infosModalVisible);
-                    }} */
                   >
                     <View
                       style={{
@@ -385,7 +502,7 @@ export default function CatalogHeader() {
                         />
                         <Image
                           source={{
-                            uri: `${REACT_APP_IMDB_API_IMG_URL}${data[0].backdrop_path}`,
+                            uri: `${REACT_APP_IMDB_API_IMG_URL}${bestMoviesSince2021[0].backdrop_path}`,
                           }}
                           style={{ height: 250, width: "100%" }}
                           resizeMode={"contain"}
@@ -407,10 +524,12 @@ export default function CatalogHeader() {
                               fontWeight: "bold",
                             }}
                           >
-                            {data[0].title}
+                            {bestMoviesSince2021[0].title}
                           </Text>
                           <Pressable
-                            onPress={() => Alert.alert("En développement")}
+                            onPress={() =>
+                              Alert.alert("Indisponible dans le simulateur IOS")
+                            }
                           >
                             <View
                               style={{
@@ -433,7 +552,12 @@ export default function CatalogHeader() {
                             </View>
                           </Pressable>
                           <Pressable
-                            onPress={() => Alert.alert("En développement")}
+                            onPress={
+                              /* onShare  */ () =>
+                                Alert.alert(
+                                  "Indisponible dans le simulateur IOS"
+                                )
+                            }
                           >
                             <View
                               style={{
@@ -467,7 +591,7 @@ export default function CatalogHeader() {
                             Synopsis:
                           </Text>
                           <Text style={{ color: "white", padding: 10 }}>
-                            {data[0].overview}
+                            {bestMoviesSince2021[0].overview}
                           </Text>
                         </View>
                         {getGenresOfThisMovie()}
