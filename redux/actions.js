@@ -42,7 +42,6 @@ export const getTrailerUrl = (item) => {
             type: SET_TRAILER_URL,
             payload: t !== undefined ? t : response.data.results[0],
           });
-          //return t !== undefined ? t : trailers.results[0];
         };
         trailer();
       });
