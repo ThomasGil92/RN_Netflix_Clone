@@ -141,8 +141,7 @@ export default function CatalogHeader() {
   }, []);
 
   function isInTheFavList(item) {
-    console.log("sss", savedMovies);
-    if (savedMovies !== null || savedMovies != undefined) {
+    if (savedMovies != null || savedMovies != undefined) {
       const newSavedMovies = savedMovies;
       const alreadyHere = newSavedMovies.filter((sL) => sL.id === item.id);
       if (alreadyHere.length !== 0) {
